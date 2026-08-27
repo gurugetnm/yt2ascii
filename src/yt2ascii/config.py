@@ -53,6 +53,7 @@ class Config:
     grayscale: bool = False
     max_duration: int = DEFAULT_MAX_DURATION
     cell_aspect_ratio: float = DEFAULT_CELL_ASPECT_RATIO
+    show_status: bool = True
 
     def __post_init__(self) -> None:
         if self.width is not None:
