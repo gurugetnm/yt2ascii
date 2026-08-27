@@ -54,6 +54,23 @@ class RaisingTerminal(FakeTerminal):
         raise KeyboardInterrupt
 
 
+class FakeAudio:
+    def __init__(self) -> None:
+        self.events: list[str] = []
+
+    def start(self) -> None:
+        self.events.append("start")
+
+    def pause(self) -> None:
+        self.events.append("pause")
+
+    def resume(self) -> None:
+        self.events.append("resume")
+
+    def stop(self) -> None:
+        self.events.append("stop")
+
+
 META = VideoMetadata(title="t", duration=1.0, width=64, height=36, fps=30.0)
 
 
@@ -174,6 +191,38 @@ def test_show_status_false_suppresses_status() -> None:
     terminal = FakeTerminal()
     _player(source, terminal, show_status=False).run()
     assert all(status is None for _f, status in terminal.draws)
+
+
+def test_audio_starts_and_stops_around_playback() -> None:
+    audio = FakeAudio()
+    result = _player(FakeSource(4), FakeTerminal(), audio=audio).run()
+    assert result.frames_shown == 4
+    assert audio.events[0] == "start"
+    assert audio.events[-1] == "stop"
+    assert audio.events.count("start") == 1
+
+
+def test_audio_pauses_and_resumes_with_video() -> None:
+    audio = FakeAudio()
+    terminal = FakeTerminal(keys=[None, " ", " "])
+    _player(FakeSource(3), terminal, audio=audio).run()
+    assert "pause" in audio.events
+    assert audio.events.index("pause") < audio.events.index("resume")
+
+
+def test_audio_restarts_on_r_key() -> None:
+    audio = FakeAudio()
+    terminal = FakeTerminal(keys=["r"])
+    _player(FakeSource(3), terminal, audio=audio).run()
+    # start (initial) + stop/start (restart) + stop (end)
+    assert audio.events.count("start") == 2
+    assert audio.events[-1] == "stop"
+
+
+def test_audio_stopped_on_keyboard_interrupt() -> None:
+    audio = FakeAudio()
+    _player(FakeSource(5), RaisingTerminal(), audio=audio).run()
+    assert audio.events[-1] == "stop"
 
 
 def test_keyboard_interrupt_is_clean_quit() -> None:

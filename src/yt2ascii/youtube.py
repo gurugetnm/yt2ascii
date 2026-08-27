@@ -127,6 +127,8 @@ _BASE_YDL_OPTS: dict[str, Any] = {
     "noprogress": True,
     "retries": 3,
     "socket_timeout": 30,
+    # Leave nothing on disk outside the caller's temp directory.
+    "cachedir": False,
 }
 
 
@@ -287,6 +289,45 @@ def extract_metadata(url: str, *, ydl_factory: YdlFactory | None = None) -> RawM
     )
 
 
+def _download(
+    url: str,
+    dest_dir: Path,
+    *,
+    fmt: str,
+    tag: str,
+    ydl_factory: YdlFactory | None,
+) -> Path:
+    """Download a single stream selected by ``fmt`` into ``dest_dir``.
+
+    ``tag`` is embedded in the filename (``<id>.<tag>.<ext>``) so that separate
+    video and audio downloads never collide in the same directory.
+    """
+
+    canonical = validate_url(url)
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    opts: dict[str, Any] = {
+        "skip_download": False,
+        "outtmpl": str(dest_dir / f"%(id)s.{tag}.%(ext)s"),
+        "format": fmt,
+    }
+    ydl, info = _run_ydl(canonical, opts, download=True, factory=ydl_factory)
+    if info is None:
+        raise DownloadError(f"The {tag} stream could not be downloaded.")
+
+    path = Path(ydl.prepare_filename(info))
+    if path.exists():
+        return path
+
+    produced = sorted(
+        (p for p in dest_dir.glob(f"*.{tag}.*") if p.is_file()),
+        key=lambda p: p.stat().st_size,
+        reverse=True,
+    )
+    if not produced:
+        raise DownloadError(f"The {tag} download did not produce a file.")
+    return produced[0]
+
+
 def download_video(
     url: str,
     dest_dir: Path,
@@ -300,30 +341,31 @@ def download_video(
     depend on a system FFmpeg for muxing.
     """
 
-    canonical = validate_url(url)
-    dest_dir.mkdir(parents=True, exist_ok=True)
-    opts: dict[str, Any] = {
-        "skip_download": False,
-        "outtmpl": str(dest_dir / "%(id)s.%(ext)s"),
-        "format": (
+    return _download(
+        url,
+        dest_dir,
+        tag="video",
+        ydl_factory=ydl_factory,
+        fmt=(
             f"bestvideo[height<={max_height}][ext=mp4]/"
             f"best[height<={max_height}][ext=mp4]/"
             f"bestvideo[height<={max_height}]/best[height<={max_height}]/best"
         ),
-    }
-    ydl, info = _run_ydl(canonical, opts, download=True, factory=ydl_factory)
-    if info is None:
-        raise DownloadError("The video could not be downloaded.")
-
-    path = Path(ydl.prepare_filename(info))
-    if path.exists():
-        return path
-
-    produced = sorted(
-        (p for p in dest_dir.iterdir() if p.is_file()),
-        key=lambda p: p.stat().st_size,
-        reverse=True,
     )
-    if not produced:
-        raise DownloadError("The video download did not produce a file.")
-    return produced[0]
+
+
+def download_audio(
+    url: str,
+    dest_dir: Path,
+    *,
+    ydl_factory: YdlFactory | None = None,
+) -> Path:
+    """Download the best audio-only stream for ``url`` into ``dest_dir``."""
+
+    return _download(
+        url,
+        dest_dir,
+        tag="audio",
+        ydl_factory=ydl_factory,
+        fmt="bestaudio[ext=m4a]/bestaudio[ext=mp3]/bestaudio/best",
+    )

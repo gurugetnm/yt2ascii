@@ -58,10 +58,21 @@ class _FakePlayer:
         )
 
 
+class _FakeAudio:
+    available = False
+    player_name = None
+
+    def __init__(self, *_a: object, **_k: object) -> None: ...
+
+    def stop(self) -> None: ...
+
+
 @pytest.fixture
 def happy_pipeline(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(cli, "extract_metadata", lambda _url: _raw())
     monkeypatch.setattr(cli, "download_video", lambda _url, _dir: Path(_dir) / "v.mp4")
+    monkeypatch.setattr(cli, "download_audio", lambda _url, _dir: Path(_dir) / "a.m4a")
+    monkeypatch.setattr(cli, "AudioPlayer", _FakeAudio)
     monkeypatch.setattr(cli, "FrameSource", _FakeSource)
     monkeypatch.setattr(cli, "TerminalController", _FakeTerminal)
     monkeypatch.setattr(cli, "Player", _FakePlayer)
@@ -101,6 +112,11 @@ class TestParser:
         args = cli.build_parser().parse_args([VALID_URL, "--fill"])
         assert args.fill is True
         assert cli._config_from_args(args).fill is True
+
+    def test_no_audio_flag(self) -> None:
+        assert cli._config_from_args(cli.build_parser().parse_args([VALID_URL])).audio is True
+        args = cli.build_parser().parse_args([VALID_URL, "--no-audio"])
+        assert cli._config_from_args(args).audio is False
 
 
 class TestMainErrors:
@@ -174,3 +190,20 @@ class TestHappyPath:
         buffer = io.StringIO()
         cli.run_pipeline(VALID_URL, cli.Config(width=80), out=buffer)
         assert "yt2ascii" in buffer.getvalue()
+
+    def test_no_audio_skips_audio_download(
+        self, happy_pipeline: None, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        calls: list[str] = []
+        monkeypatch.setattr(
+            cli, "download_audio", lambda _u, _d: calls.append("x") or Path("a")
+        )
+        cli.main([VALID_URL, "--no-audio"])
+        assert calls == []
+
+    def test_missing_audio_player_notes_silent_playback(
+        self, happy_pipeline: None, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        # _FakeAudio.available is False -> the pipeline should say so and go on.
+        assert cli.main([VALID_URL]) == 0
+        assert "playing silently" in capsys.readouterr().out

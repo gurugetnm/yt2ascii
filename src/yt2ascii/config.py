@@ -56,6 +56,8 @@ class Config:
     show_status: bool = True
     #: Stretch the image to fill the whole terminal, ignoring aspect ratio.
     fill: bool = False
+    #: Play the video's audio track through an external player if one is found.
+    audio: bool = True
 
     def __post_init__(self) -> None:
         if self.width is not None:

@@ -12,6 +12,7 @@ from typing import IO
 
 from . import __version__
 from .ascii_renderer import AsciiRenderer
+from .audio import AudioPlayer
 from .config import (
     DEFAULT_CHARS,
     DEFAULT_FPS,
@@ -24,7 +25,7 @@ from .errors import Yt2AsciiError
 from .player import Player
 from .terminal import TerminalController, get_terminal_size, resolve_width
 from .video import FrameSource, VideoMetadata, format_timestamp, validate_duration
-from .youtube import download_video, extract_metadata, validate_url
+from .youtube import download_audio, download_video, extract_metadata, validate_url
 
 _PROG = "yt2ascii"
 
@@ -106,6 +107,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Hide the live status line during playback.",
     )
     parser.add_argument(
+        "--no-audio",
+        action="store_true",
+        help="Do not download or play the audio track.",
+    )
+    parser.add_argument(
         "--version",
         action="version",
         version=f"{_PROG} {__version__}",
@@ -123,6 +129,7 @@ def _config_from_args(args: argparse.Namespace) -> Config:
         max_duration=args.max_duration,
         show_status=not args.no_status,
         fill=args.fill,
+        audio=not args.no_audio,
     )
 
 
@@ -166,9 +173,13 @@ def run_pipeline(
     _echo(stream, "\nPreparing renderer...")
     temp_dir = Path(tempfile.mkdtemp(prefix=f"{_PROG}-"))
     source: FrameSource | None = None
+    audio: AudioPlayer | None = None
     try:
         video_path = download_video(canonical, temp_dir)
         source = FrameSource(video_path)
+
+        if config.audio:
+            audio = _prepare_audio(canonical, temp_dir, stream)
 
         term_size = get_terminal_size()
         resolved = resolve_width(config.width, terminal_columns=term_size.columns)
@@ -180,6 +191,8 @@ def run_pipeline(
             _echo(stream, "  (clamped to fit the current terminal)")
         _echo(stream, f"✓ Playback FPS: {final_config.fps}")
         _echo(stream, f"✓ Colour: {final_config.effective_mode.value}")
+        if audio is not None and audio.available:
+            _echo(stream, f"✓ Audio: {audio.player_name}")
         _echo(stream, "\nPress SPACE to pause • Q to quit\n")
 
         with TerminalController() as terminal:
@@ -191,6 +204,7 @@ def run_pipeline(
                 metadata,
                 show_status=final_config.show_status,
                 terminal_rows=term_size.rows,
+                audio=audio,
             )
             result = player.run()
 
@@ -206,9 +220,31 @@ def run_pipeline(
         if result.quit_early:
             _echo(stream, "Stopped early.")
     finally:
+        if audio is not None:
+            audio.stop()
         if source is not None:
             source.close()
         shutil.rmtree(temp_dir, ignore_errors=True)
+
+
+def _prepare_audio(url: str, temp_dir: Path, stream: IO[str]) -> AudioPlayer | None:
+    """Download the audio track and pick a player, or explain why not."""
+
+    try:
+        audio_path = download_audio(url, temp_dir)
+    except Yt2AsciiError as exc:
+        _echo(stream, f"note: audio unavailable ({exc}); playing silently.")
+        return None
+
+    player = AudioPlayer(audio_path)
+    if not player.available:
+        _echo(
+            stream,
+            "note: no audio player found (install ffmpeg/mpv, or use afplay on "
+            "macOS); playing silently.",
+        )
+        return None
+    return player
 
 
 def main(argv: Sequence[str] | None = None) -> int:

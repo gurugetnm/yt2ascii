@@ -9,7 +9,13 @@ from typing import Any
 import pytest
 
 from yt2ascii.errors import DownloadError, MetadataError, URLValidationError, VideoUnavailableError
-from yt2ascii.youtube import RawMetadata, download_video, extract_metadata, validate_url
+from yt2ascii.youtube import (
+    RawMetadata,
+    download_audio,
+    download_video,
+    extract_metadata,
+    validate_url,
+)
 
 VALID_ID = "dQw4w9WgXcQ"
 
@@ -168,9 +174,9 @@ class TestDownloadVideo:
         assert path == target
         assert path.exists()
 
-    def test_falls_back_to_largest_file(self, tmp_path: Path) -> None:
-        (tmp_path / "small.part").write_bytes(b"x")
-        big = tmp_path / f"{VALID_ID}.webm"
+    def test_falls_back_to_tagged_file(self, tmp_path: Path) -> None:
+        (tmp_path / f"{VALID_ID}.audio.m4a").write_bytes(b"x" * 9)  # other stream
+        big = tmp_path / f"{VALID_ID}.video.webm"
         big.write_bytes(b"x" * 5000)
         ydl = FakeYDL({"id": VALID_ID})  # prepare_filename -> non-existent .mp4
         path = download_video(
@@ -190,4 +196,23 @@ class TestDownloadVideo:
         with pytest.raises(VideoUnavailableError):
             download_video(
                 f"https://youtu.be/{VALID_ID}", tmp_path, ydl_factory=_factory(ydl)
+            )
+
+
+class TestDownloadAudio:
+    def test_downloads_audio_stream(self, tmp_path: Path) -> None:
+        target = tmp_path / f"{VALID_ID}.audio.m4a"
+        ydl = FakeYDL({"id": VALID_ID}, writes_file=target)
+        path = download_audio(
+            f"https://youtu.be/{VALID_ID}", tmp_path, ydl_factory=_factory(ydl)
+        )
+        assert path == target
+        assert path.exists()
+
+    def test_missing_audio_raises(self, tmp_path: Path) -> None:
+        with pytest.raises(DownloadError):
+            download_audio(
+                f"https://youtu.be/{VALID_ID}",
+                tmp_path,
+                ydl_factory=_factory(FakeYDL({"id": VALID_ID})),
             )

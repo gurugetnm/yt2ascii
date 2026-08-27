@@ -48,23 +48,28 @@ Given a YouTube URL, `yt2ascii`:
 1. Validates the URL.
 2. Fetches metadata with `yt-dlp` (title, duration, resolution, source FPS).
 3. Checks the duration against a configurable limit.
-4. Downloads the video to an isolated temporary directory.
+4. Downloads the video (and, unless `--no-audio`, a separate audio track) to an
+   isolated temporary directory.
 5. Decodes frames with OpenCV, resizing early for speed.
 6. Converts each frame to characters (luminance ramp) plus per-cell RGB colour.
 7. Emits one ANSI string per frame and repaints the screen in place.
 8. Keeps playback timed with a monotonic clock, skipping frames if it falls
-   behind.
-9. Restores the terminal on quit, `Ctrl+C`, or error, and deletes the temp files.
+   behind; the audio track plays through an external player, paused/resumed in
+   lock-step with the video.
+9. Restores the terminal on quit, `Ctrl+C`, or error, kills the audio process,
+   and deletes the entire temporary directory.
 
 ## Features
 
-- YouTube `watch`, `youtu.be`, and `shorts` URLs.
+- YouTube `watch`, `youtu.be`, and `shorts` URLs, scheme-less URLs, or a bare id.
 - 24-bit truecolor, 256-colour, and grayscale rendering modes.
-- Automatic terminal-size detection with aspect-ratio correction.
+- Synced audio playback via `afplay` / `ffplay` / `mpv` / `vlc` (`--no-audio` to mute).
+- Automatic terminal-size detection with aspect-ratio correction, or `--fill`.
 - Monotonic-clock playback scheduler with frame skipping.
 - Interactive controls: pause/resume, quit, restart, live width changes.
 - Friendly errors for private / deleted / unavailable / age-restricted videos.
-- No tracebacks for expected failures; temp files always cleaned up.
+- No tracebacks for expected failures.
+- Nothing persisted: media lives in a temp dir wiped on exit, yt-dlp cache disabled.
 - Vectorised NumPy conversion pipeline; a single `write()` per frame.
 
 ## Demo
@@ -90,6 +95,8 @@ Press SPACE to pause • Q to quit
 - Python 3.11+
 - [FFmpeg](https://ffmpeg.org/) on your `PATH` (recommended; see below)
 - A terminal that supports ANSI escape sequences (most do)
+- For audio: one of `afplay` (bundled with macOS), `ffplay`, `mpv`, or `vlc`
+  on your `PATH`. Without one, playback is silent.
 
 Python dependencies (installed automatically): `numpy`,
 `opencv-python-headless`, `yt-dlp`.
@@ -145,6 +152,7 @@ yt2ascii --help
 | `--grayscale` | off | Shortcut for `--mode grayscale`. |
 | `--fill` | off | Stretch to fill the whole terminal, ignoring aspect ratio. |
 | `--max-duration S` | `300` | Maximum allowed video length in seconds. |
+| `--no-audio` | off | Skip the audio download and play silently. |
 | `--no-status` | off | Hide the live status line during playback. |
 | `--version` | | Print the version and exit. |
 | `--help` | | Show help and exit. |
@@ -171,12 +179,13 @@ yt2ascii URL --max-duration 600
 cli.py         argument parsing, pipeline orchestration, friendly errors
 config.py      validated Config dataclass + ColorMode
 errors.py      Yt2AsciiError hierarchy
-youtube.py     URL validation, yt-dlp metadata, temp-dir download
+youtube.py     URL validation, yt-dlp metadata, temp-dir video/audio download
 video.py       VideoMetadata, duration checks, OpenCV frame source + sampling
 ascii_renderer.py  frame -> characters + dimensions/aspect-ratio maths
 color.py       luminance, RGB -> ANSI truecolor / 256 / grayscale
 terminal.py    size detection, cursor control, raw-mode key reads, cleanup
-player.py      monotonic playback loop, frame skipping, interactive controls
+audio.py       external-player subprocess, pause/resume/stop
+player.py      monotonic playback loop, frame skipping, A/V sync, controls
 ```
 
 Data flow:
@@ -232,7 +241,8 @@ controls need a real TTY on stdin.
 
 ## Limitations
 
-- No audio playback.
+- Audio needs an external player on `PATH`; A/V sync is start-aligned, not
+  sample-accurate, and can drift on very long videos or heavy frame skipping.
 - Video only (no local files / images / webcam yet).
 - Very small terminals limit detail.
 - Live streams are not supported.

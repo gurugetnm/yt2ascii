@@ -7,6 +7,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from .ascii_renderer import AsciiRenderer, Dimensions, compute_dimensions
+from .audio import AudioPlayer
 from .config import MAX_WIDTH, MIN_WIDTH, Config
 from .terminal import TerminalController, get_terminal_size
 from .video import FrameSource, VideoMetadata
@@ -47,6 +48,7 @@ class Player:
         sleep: Sleep = time.sleep,
         show_status: bool = True,
         terminal_rows: int | None = None,
+        audio: AudioPlayer | None = None,
     ) -> None:
         if config.width is None:
             raise ValueError("Config.width must be resolved before playback")
@@ -58,6 +60,7 @@ class Player:
         self._clock = clock
         self._sleep = sleep
         self._show_status = show_status
+        self._audio = audio
 
         self._frame_w = source.width or metadata.width or 16
         self._frame_h = source.height or metadata.height or 9
@@ -78,6 +81,8 @@ class Player:
         start = self._clock()
         fps_ema = float(self._config.fps)
         last_tick = start
+        if self._audio is not None:
+            self._audio.start()
 
         try:
             while True:
@@ -86,7 +91,11 @@ class Player:
                     quit_early = True
                     break
                 if action == "pause":
+                    if self._audio is not None:
+                        self._audio.pause()
                     paused_for, want_quit = self._pause()
+                    if self._audio is not None:
+                        self._audio.resume()
                     start += paused_for
                     last_tick = self._clock()
                     if want_quit:
@@ -96,6 +105,9 @@ class Player:
                     restarts += 1
                     self._source.reset()
                     frames = self._source.frames(self._config.fps)
+                    if self._audio is not None:
+                        self._audio.stop()
+                        self._audio.start()
                     self._terminal.clear()
                     start = self._clock()
                     last_tick = start
@@ -135,6 +147,9 @@ class Player:
                 last_tick = tick
         except KeyboardInterrupt:
             quit_early = True
+        finally:
+            if self._audio is not None:
+                self._audio.stop()
 
         elapsed = max(1e-6, self._clock() - start)
         return PlaybackResult(
