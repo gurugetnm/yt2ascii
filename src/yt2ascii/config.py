@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
-from enum import Enum
+from enum import StrEnum
 
 from .errors import ConfigError
 
@@ -30,15 +30,12 @@ DEFAULT_MAX_DURATION: int = 300
 DEFAULT_CELL_ASPECT_RATIO: float = 2.0
 
 
-class ColorMode(str, Enum):
+class ColorMode(StrEnum):
     """Supported colour rendering strategies."""
 
     TRUECOLOR = "truecolor"
     ANSI256 = "ansi256"
     GRAYSCALE = "grayscale"
-
-    def __str__(self) -> str:  # pragma: no cover - trivial
-        return self.value
 
 
 @dataclass(frozen=True, slots=True)
