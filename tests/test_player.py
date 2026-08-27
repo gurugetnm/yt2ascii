@@ -155,6 +155,23 @@ def test_fill_stretches_to_terminal_height() -> None:
     player.run()
 
 
+def test_no_status_reclaims_a_row() -> None:
+    source = FakeSource(1, width=1920, height=816)
+    config = Config(width=40, fps=10, mode=ColorMode.GRAYSCALE, fill=True).with_width(40)
+    player = Player(
+        source,  # type: ignore[arg-type]
+        AsciiRenderer(config),
+        FakeTerminal(),  # type: ignore[arg-type]
+        config,
+        META,
+        clock=lambda: 0.0,
+        sleep=lambda _s: None,
+        terminal_rows=40,
+        show_status=False,
+    )
+    assert player.dimensions.rows == 39  # only 1 row reserved without the status line
+
+
 def test_restart_rewinds_source() -> None:
     source = FakeSource(3)
     terminal = FakeTerminal(keys=["r"])

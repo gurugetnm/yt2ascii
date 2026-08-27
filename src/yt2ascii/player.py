@@ -18,8 +18,9 @@ Sleep = Callable[[float], None]
 CONTROLS_HINT = "SPACE pause • Q quit • R restart • +/- width"
 _PAUSE_HINT = "PAUSED — SPACE resume • Q quit"
 
-#: Rows kept free below the image for the controls/status line.
+#: Rows kept free below the image for the status line (or 1 spare row without it).
 _STATUS_RESERVE = 2
+_NO_STATUS_RESERVE = 1
 
 
 @dataclass(slots=True)
@@ -65,7 +66,8 @@ class Player:
         self._frame_w = source.width or metadata.width or 16
         self._frame_h = source.height or metadata.height or 9
         rows = terminal_rows if terminal_rows is not None else get_terminal_size().rows
-        self._max_rows = max(1, rows - _STATUS_RESERVE)
+        reserve = _STATUS_RESERVE if show_status else _NO_STATUS_RESERVE
+        self._max_rows = max(1, rows - reserve)
         self._width = config.width
         self._dims = self._compute_dims()
         self._last_ascii = ""
