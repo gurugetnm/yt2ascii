@@ -52,6 +52,13 @@ class FakeCapture:
             return False, None
         return True, self._frames[self._grabbed]
 
+    def set(self, prop: int, value: float) -> bool:
+        if prop == cv2.CAP_PROP_POS_FRAMES:
+            self._pos = int(value)
+            self._grabbed = -1
+            return True
+        return False
+
     def release(self) -> None:
         self.released = True
 
@@ -152,3 +159,10 @@ class TestFrameSource:
         src = self._source(_solid_frames(3))
         with pytest.raises(ValueError):
             list(src.frames(target_fps=0))
+
+    def test_reset_allows_replay(self) -> None:
+        src = self._source(_solid_frames(6), fps=6.0)
+        first = list(src.frames(target_fps=6))
+        assert len(first) == 6
+        src.reset()
+        assert len(list(src.frames(target_fps=6))) == 6

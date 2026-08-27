@@ -111,6 +111,11 @@ class FrameSource:
         if self._cap is not None:
             self._cap.release()
 
+    def reset(self) -> None:
+        """Rewind to the first frame so playback can restart."""
+
+        self._cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+
     @property
     def duration(self) -> float:
         if self.source_fps > 0 and self.frame_count > 0:
