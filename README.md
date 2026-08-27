@@ -92,7 +92,8 @@ YouTube URL
 - Playlist / radio query params (`&list=`, `&index=`, `&pp=`, `&si=`) are
   stripped to the canonical `watch?v=ID`.
 - 24-bit **truecolor**, **256-colour**, and **grayscale** rendering modes.
-- **Synced audio** via `afplay` / `ffplay` / `mpv` / `vlc` (`--no-audio` mutes).
+- **Synced audio** via `mpv` / `ffplay` / `vlc` / `afplay` (`--no-audio` mutes);
+  `mpv` or `ffmpeg` gives true pause/resume-in-sync.
 - Automatic terminal-size detection with **aspect-ratio correction**, or
   `--fill` to stretch to the whole terminal.
 - Custom luminance ramp via `--chars`.
@@ -139,9 +140,10 @@ FPS: 14.8 | Frame: 182/1530 | Width: 120    SPACE pause • Q quit • R restart
 - **Python 3.11+**
 - A terminal that supports ANSI escape sequences (virtually all do)
 - **FFmpeg** on your `PATH` — optional but recommended (see below)
-- **An audio player** on your `PATH` for sound — one of `afplay` (bundled with
-  macOS), `ffplay`, `mpv`, `cvlc`/`vlc`, `paplay`, `aplay`. Without one,
-  playback is silent.
+- **An audio player** on your `PATH` for sound — one of `mpv`, `ffplay`,
+  `afplay` (bundled with macOS), `cvlc`/`vlc`, `paplay`, `aplay`. `mpv` or
+  `ffmpeg` also enables true pause/resume; `afplay` alone cannot pause. Without
+  any player, playback is silent.
 
 Python dependencies, installed automatically: `certifi`, `numpy`,
 `opencv-python-headless`, `yt-dlp`.
@@ -202,15 +204,19 @@ Audio is **on by default**. `yt2ascii` downloads a separate audio-only stream
 (`bestaudio`, preferring `m4a`) and plays it with the first available player
 found on `PATH`, in this order:
 
-`afplay` → `ffplay` → `mpv` → `cvlc` → `paplay` → `aplay`
+`mpv` → `ffplay` → `afplay` → `cvlc` → `paplay` → `aplay`
 
-macOS has `afplay` built in — nothing to install. Elsewhere, install one:
+macOS has `afplay` built in — nothing to install for sound. But `afplay`
+**cannot pause mid-file**, so with it a `SPACE` pause keeps the music playing
+and the video jumps forward to catch up on resume. Install a seekable player
+for true pause/resume:
 
 ```bash
-sudo apt install mpv        # or ffmpeg (for ffplay), or vlc
+brew install mpv            # macOS
+sudo apt install mpv        # Debian/Ubuntu (or: ffmpeg, vlc)
 ```
 
-If no player is found, `yt2ascii` prints `note: no audio player found …
+If no player is found at all, `yt2ascii` prints `note: no audio player found …
 playing silently` and plays the video only. Use `--no-audio` to skip the audio
 download entirely.
 
@@ -379,22 +385,29 @@ The scheduler uses a monotonic clock and fixed target presentation times:
   write are dropped rather than accumulating latency.
 - Otherwise it sleeps until `target(i)` (in ≤ 1 s slices), renders, and writes.
 
-Pausing shifts `start` by the paused duration so timing resumes cleanly.
+When a **seekable** player is in use, pausing shifts `start` by the paused
+duration so the video resumes exactly where it froze. With a **non-seekable**
+player, `start` is left unchanged and the frame scheduler skips forward to catch
+up with the still-running audio.
 
 ## Audio synchronisation
 
 The audio file is handed to an external player as a plain argument array (no
 shell). Playback starts when the video clock starts, so audio and video are
-**start-aligned**. On POSIX:
+**start-aligned**. Freezing a player with `SIGSTOP` is *not* used — on macOS
+`afplay`'s playhead keeps advancing while stopped, so it would resume near the
+end and then fall silent.
 
-- **Pause** sends `SIGSTOP` to the player; **resume** sends `SIGCONT`, so audio
-  freezes and thaws in step with the video.
-- **Restart** stops and re-spawns the player.
-- **Exit** (any path) sends `SIGCONT` then `SIGTERM`, then `SIGKILL` if the
-  process has not exited within one second.
+| Event | Seekable player (`mpv`, `ffplay`, `vlc`) | Non-seekable (`afplay`, `paplay`, `aplay`) |
+| --- | --- | --- |
+| **Pause** | player is stopped | player keeps playing |
+| **Resume** | relaunched with `--start=` / `-ss` at the current video position | nothing; video fast-forwards to the audio |
+| **Restart** | stopped and relaunched from 0 | stopped and relaunched from 0 |
+| **Exit** | `SIGTERM`, then `SIGKILL` after 1 s | same |
 
-Sync is not sample-accurate and can drift slightly on very long videos or under
-heavy frame skipping.
+Seek-based resume is approximate (keyframe granularity for `ffplay`), and
+overall sync can drift slightly on very long videos or under heavy frame
+skipping. Install `mpv` or `ffmpeg` for the smoothest pause/resume.
 
 ## Temporary files and privacy
 
@@ -442,8 +455,9 @@ paused.
 ## Limitations
 
 - No web UI — the terminal is the whole interface, by design.
-- Audio needs an external player on `PATH`; A/V sync is start-aligned, not
-  sample-accurate, and can drift on very long videos.
+- Audio needs an external player on `PATH`. With `afplay` (macOS default) a
+  pause does not stop the music — install `mpv` or `ffmpeg` for that. A/V sync
+  is start-aligned, not sample-accurate, and can drift on very long videos.
 - Video input only — no local files, images, GIFs, or webcam yet.
 - Live streams (no fixed duration) are rejected.
 - Very small terminals limit detail; the width cap is 400 columns.
@@ -458,6 +472,7 @@ paused.
 | `Error: Could not reach YouTube …` | Network/DNS/SSL problem — check connectivity; see the row above. |
 | `Error: Video duration is …` | The video exceeds `--max-duration`; pass a larger value. |
 | No sound | Install an audio player (`mpv`, `ffmpeg`, `vlc`); macOS already has `afplay`. Check the `✓ Audio:` pre-flight line. |
+| Sound gone / silent after a pause | You're on `afplay`, which can't pause mid-file. `brew install mpv` (or `ffmpeg`) for pausable audio. |
 | Dark parts aren't black | Set your terminal background to solid black; `yt2ascii` only colours characters, not cell backgrounds. |
 | Colours look wrong / garbled | Use `--mode ansi256` or `--grayscale`; your terminal may lack 24-bit colour. |
 | Image looks stretched or squashed | Your font's cell ratio differs from 2:1 — try another font, or use `--fill`. |

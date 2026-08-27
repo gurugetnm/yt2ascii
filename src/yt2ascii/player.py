@@ -83,6 +83,7 @@ class Player:
         start = self._clock()
         fps_ema = float(self._config.fps)
         last_tick = start
+        last_index = 0
         if self._audio is not None:
             self._audio.start()
 
@@ -93,12 +94,16 @@ class Player:
                     quit_early = True
                     break
                 if action == "pause":
-                    if self._audio is not None:
-                        self._audio.pause()
+                    # Seekable players stop now and re-seek on resume, so the
+                    # video timeline is shifted by the pause duration. A
+                    # non-seekable player (afplay) keeps playing, so we leave
+                    # the timeline alone and let the video skip forward to it.
+                    audio_held = self._audio is not None and self._audio.pause()
                     paused_for, want_quit = self._pause()
                     if self._audio is not None:
-                        self._audio.resume()
-                    start += paused_for
+                        self._audio.resume(position=last_index * dt)
+                    if self._audio is None or audio_held:
+                        start += paused_for
                     last_tick = self._clock()
                     if want_quit:
                         quit_early = True
@@ -114,6 +119,7 @@ class Player:
                     start = self._clock()
                     last_tick = start
                     shown = skipped = 0
+                    last_index = 0
                     continue
                 elif action in ("wider", "narrower"):
                     if self._adjust_width(4 if action == "wider" else -4):
@@ -122,6 +128,7 @@ class Player:
                 frame = next(frames, None)
                 if frame is None:
                     break
+                last_index = frame.index
 
                 target = start + frame.index * dt
                 now = self._clock()

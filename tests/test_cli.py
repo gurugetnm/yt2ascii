@@ -60,6 +60,7 @@ class _FakePlayer:
 
 class _FakeAudio:
     available = False
+    seekable = False
     player_name = None
 
     def __init__(self, *_a: object, **_k: object) -> None: ...

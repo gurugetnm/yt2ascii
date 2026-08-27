@@ -193,6 +193,12 @@ def run_pipeline(
         _echo(stream, f"✓ Colour: {final_config.effective_mode.value}")
         if audio is not None and audio.available:
             _echo(stream, f"✓ Audio: {audio.player_name}")
+            if not audio.seekable:
+                _echo(
+                    stream,
+                    "  (audio keeps playing through a pause; install mpv or "
+                    "ffmpeg for pause/resume-in-sync)",
+                )
         _echo(stream, "\nPress SPACE to pause • Q to quit\n")
 
         with TerminalController() as terminal:

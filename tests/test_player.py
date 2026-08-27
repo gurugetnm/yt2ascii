@@ -55,17 +55,21 @@ class RaisingTerminal(FakeTerminal):
 
 
 class FakeAudio:
-    def __init__(self) -> None:
+    def __init__(self, *, seekable: bool = True) -> None:
         self.events: list[str] = []
+        self.seekable = seekable
+        self.resume_positions: list[float] = []
 
-    def start(self) -> None:
+    def start(self, position: float = 0.0) -> None:
         self.events.append("start")
 
-    def pause(self) -> None:
+    def pause(self) -> bool:
         self.events.append("pause")
+        return self.seekable
 
-    def resume(self) -> None:
+    def resume(self, position: float = 0.0) -> None:
         self.events.append("resume")
+        self.resume_positions.append(position)
 
     def stop(self) -> None:
         self.events.append("stop")
@@ -220,11 +224,20 @@ def test_audio_starts_and_stops_around_playback() -> None:
 
 
 def test_audio_pauses_and_resumes_with_video() -> None:
-    audio = FakeAudio()
+    audio = FakeAudio(seekable=True)
     terminal = FakeTerminal(keys=[None, " ", " "])
     _player(FakeSource(3), terminal, audio=audio).run()
     assert "pause" in audio.events
     assert audio.events.index("pause") < audio.events.index("resume")
+
+
+def test_non_seekable_audio_still_gets_resume_call() -> None:
+    audio = FakeAudio(seekable=False)
+    terminal = FakeTerminal(keys=[None, " ", " "])
+    result = _player(FakeSource(4), terminal, audio=audio).run()
+    # resume() is always called; the player just decides not to shift the clock.
+    assert "resume" in audio.events
+    assert result.frames_shown == 4
 
 
 def test_audio_restarts_on_r_key() -> None:
