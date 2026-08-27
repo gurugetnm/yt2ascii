@@ -144,6 +144,7 @@ yt2ascii --help
 | `--chars RAMP` | `" .:-=+*#%@"` | Custom luminance ramp, dark to light. |
 | `--grayscale` | off | Shortcut for `--mode grayscale`. |
 | `--max-duration S` | `300` | Maximum allowed video length in seconds. |
+| `--no-status` | off | Hide the live status line during playback. |
 | `--version` | | Print the version and exit. |
 | `--help` | | Show help and exit. |
 
