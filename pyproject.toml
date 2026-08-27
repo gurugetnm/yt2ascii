@@ -60,7 +60,9 @@ testpaths = ["tests"]
 addopts = "-q"
 
 [tool.mypy]
-python_version = "3.11"
+# Analyse with 3.12 semantics (bundled numpy stubs use PEP 695 syntax); the
+# package itself still targets 3.11 at runtime.
+python_version = "3.12"
 files = ["src"]
 strict = true
 warn_unused_ignores = true
