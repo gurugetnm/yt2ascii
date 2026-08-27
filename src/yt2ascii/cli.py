@@ -57,7 +57,7 @@ def build_parser() -> argparse.ArgumentParser:
         type=int,
         metavar="N",
         default=None,
-        help=f"ASCII width in columns (20-{MAX_WIDTH}). Default: terminal width.",
+        help=f"ASCII width in columns (20-{MAX_WIDTH}). Default: fit the terminal.",
     )
     parser.add_argument(
         "--fps",
@@ -89,6 +89,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Shortcut for --mode grayscale.",
     )
     parser.add_argument(
+        "--fill",
+        action="store_true",
+        help="Stretch the image to fill the whole terminal, ignoring aspect ratio.",
+    )
+    parser.add_argument(
         "--max-duration",
         type=int,
         metavar="SECONDS",
@@ -117,6 +122,7 @@ def _config_from_args(args: argparse.Namespace) -> Config:
         grayscale=args.grayscale,
         max_duration=args.max_duration,
         show_status=not args.no_status,
+        fill=args.fill,
     )
 
 

@@ -157,6 +157,7 @@ class Player:
             self._width,
             cell_aspect_ratio=self._config.cell_aspect_ratio,
             max_height=self._max_rows,
+            fill_height=self._max_rows if self._config.fill else None,
         )
 
     def _adjust_width(self, delta: int) -> bool:

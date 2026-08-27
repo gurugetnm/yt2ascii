@@ -32,12 +32,14 @@ def compute_dimensions(
     *,
     cell_aspect_ratio: float,
     max_height: int | None = None,
+    fill_height: int | None = None,
 ) -> Dimensions:
     """Derive the ASCII grid size for a frame.
 
-    ``rows`` accounts for the video aspect ratio and the fact that a terminal
-    cell is roughly ``cell_aspect_ratio`` times taller than it is wide, so the
-    image is not vertically stretched.
+    ``rows`` normally accounts for the video aspect ratio and the fact that a
+    terminal cell is roughly ``cell_aspect_ratio`` times taller than it is
+    wide, so the image is not vertically stretched. Pass ``fill_height`` to
+    force an exact row count instead (stretch-to-fill, ignoring aspect ratio).
     """
 
     if frame_width <= 0 or frame_height <= 0:
@@ -46,6 +48,10 @@ def compute_dimensions(
         raise ValueError("target_width must be positive")
 
     cols = int(target_width)
+
+    if fill_height is not None:
+        return Dimensions(cols=cols, rows=max(1, int(fill_height)))
+
     frame_aspect = frame_height / frame_width
     rows = max(1, round(cols * frame_aspect / cell_aspect_ratio))
 

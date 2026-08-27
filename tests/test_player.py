@@ -120,6 +120,24 @@ def test_width_controls_adjust_dimensions_and_clear() -> None:
     assert terminal.clears == 1
 
 
+def test_fill_stretches_to_terminal_height() -> None:
+    source = FakeSource(2, width=1920, height=816)
+    terminal = FakeTerminal()
+    config = Config(width=40, fps=10, mode=ColorMode.GRAYSCALE, fill=True).with_width(40)
+    player = Player(
+        source,  # type: ignore[arg-type]
+        AsciiRenderer(config),
+        terminal,  # type: ignore[arg-type]
+        config,
+        META,
+        clock=lambda: 0.0,
+        sleep=lambda _s: None,
+        terminal_rows=40,
+    )
+    assert player.dimensions.rows == 38  # terminal_rows - status reserve
+    player.run()
+
+
 def test_restart_rewinds_source() -> None:
     source = FakeSource(3)
     terminal = FakeTerminal(keys=["r"])

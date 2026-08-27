@@ -95,6 +95,12 @@ class TestParser:
         assert args.fps == 15
         assert args.mode == "truecolor"
         assert args.width is None
+        assert args.fill is False
+
+    def test_fill_flag(self) -> None:
+        args = cli.build_parser().parse_args([VALID_URL, "--fill"])
+        assert args.fill is True
+        assert cli._config_from_args(args).fill is True
 
 
 class TestMainErrors:

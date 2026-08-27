@@ -138,11 +138,12 @@ yt2ascii --help
 
 | Option | Default | Description |
 | --- | --- | --- |
-| `--width N` | terminal width | ASCII width in columns (20–200). |
+| `--width N` | fit terminal | ASCII width in columns (20–400). |
 | `--fps N` | `15` | Target playback frames per second (1–60). |
 | `--mode MODE` | `truecolor` | `truecolor`, `ansi256`, or `grayscale`. |
 | `--chars RAMP` | `" .:-=+*#%@"` | Custom luminance ramp, dark to light. |
 | `--grayscale` | off | Shortcut for `--mode grayscale`. |
+| `--fill` | off | Stretch to fill the whole terminal, ignoring aspect ratio. |
 | `--max-duration S` | `300` | Maximum allowed video length in seconds. |
 | `--no-status` | off | Hide the live status line during playback. |
 | `--version` | | Print the version and exit. |

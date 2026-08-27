@@ -31,6 +31,13 @@ class TestComputeDimensions:
         dims = compute_dimensions(100, 400, 80, cell_aspect_ratio=2.0, max_height=30)
         assert dims.rows == 30
 
+    def test_fill_height_overrides_aspect(self) -> None:
+        dims = compute_dimensions(
+            1920, 816, 200, cell_aspect_ratio=2.0, max_height=50, fill_height=50
+        )
+        assert dims.cols == 200
+        assert dims.rows == 50
+
     def test_rejects_bad_input(self) -> None:
         with pytest.raises(ValueError):
             compute_dimensions(0, 100, 80, cell_aspect_ratio=2.0)

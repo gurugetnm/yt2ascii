@@ -11,7 +11,7 @@ from .errors import ConfigError
 DEFAULT_CHARS: str = " .:-=+*#%@"
 
 #: Hard cap on the ASCII width regardless of terminal size or ``--width``.
-MAX_WIDTH: int = 200
+MAX_WIDTH: int = 400
 
 #: Smallest width that still produces a recognisable image.
 MIN_WIDTH: int = 20
@@ -54,6 +54,8 @@ class Config:
     max_duration: int = DEFAULT_MAX_DURATION
     cell_aspect_ratio: float = DEFAULT_CELL_ASPECT_RATIO
     show_status: bool = True
+    #: Stretch the image to fill the whole terminal, ignoring aspect ratio.
+    fill: bool = False
 
     def __post_init__(self) -> None:
         if self.width is not None:
