@@ -131,15 +131,24 @@ class TestExtractMetadata:
             ("ERROR: This video has been removed by the uploader", VideoUnavailableError),
             ("Sign in to confirm your age (age restricted)", VideoUnavailableError),
             ("ERROR: not made this video available in your country", VideoUnavailableError),
+            ("Sign in to confirm you're not a bot", VideoUnavailableError),
             ("ERROR: some unexpected failure", MetadataError),
+            # A page-fetch/SSL failure must not be mistaken for "age" in "page".
+            (
+                "ERROR: Unable to download API page: [SSL: CERTIFICATE_VERIFY_FAILED]. "
+                "Confirm you are on the latest version",
+                MetadataError,
+            ),
         ],
     )
     def test_translates_ydl_errors(self, message: str, exc: type[Exception]) -> None:
         ydl = FakeYDL(error=RuntimeError(message))
-        with pytest.raises(exc):
+        with pytest.raises(exc) as excinfo:
             extract_metadata(
                 f"https://youtu.be/{VALID_ID}", ydl_factory=_factory(ydl)
             )
+        if "SSL" in message:
+            assert "internet connection" in str(excinfo.value)
 
 
 class TestDownloadVideo:

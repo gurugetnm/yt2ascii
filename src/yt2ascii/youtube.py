@@ -127,42 +127,73 @@ def _default_ydl_factory(opts: dict[str, Any]) -> AbstractContextManager[_Youtub
     )
 
 
+# Ordered (phrase, exception factory) rules. Phrases are matched as substrings
+# against the lower-cased error text; order matters, most specific first.
+_NETWORK_PHRASES = (
+    "certificate_verify_failed",
+    "ssl:",
+    "urlopen error",
+    "getaddrinfo failed",
+    "failed to resolve",
+    "connection refused",
+    "connection reset",
+    "network is unreachable",
+    "timed out",
+    "unable to download api page",
+    "unable to download webpage",
+)
+_AGE_PHRASES = (
+    "confirm your age",
+    "age-restricted",
+    "age restricted",
+    "inappropriate for some users",
+)
+_UNAVAILABLE_PHRASES = (
+    "video unavailable",
+    "video is unavailable",
+    "no longer available",
+    "has been removed",
+    "account associated with this video has been terminated",
+    "this video is not available",
+    "does not exist",
+    "removed for violating",
+)
+_REGION_PHRASES = (
+    "available in your country",
+    "available in your location",
+    "not available in your region",
+    "blocked it in your country",
+    "geo restricted",
+    "geo-restricted",
+)
+_BOT_PHRASES = (
+    "confirm you're not a bot",
+    "confirm that you're not a bot",
+    "sign in to confirm you",
+)
+
+
 def _classify_ydl_error(message: str) -> MetadataError | VideoUnavailableError | DownloadError:
     text = message.lower()
-    if "private" in text:
+
+    if any(phrase in text for phrase in _NETWORK_PHRASES):
+        return MetadataError(
+            "Could not reach YouTube. Check your internet connection and try again."
+        )
+    if "private video" in text or "this video is private" in text:
         return VideoUnavailableError("This video is private.")
-    if "age" in text and ("confirm" in text or "restrict" in text or "sign in" in text):
+    if any(phrase in text for phrase in _AGE_PHRASES):
         return VideoUnavailableError(
             "This video is age restricted and cannot be played without signing in."
         )
-    if any(
-        phrase in text
-        for phrase in (
-            "video unavailable",
-            "no longer available",
-            "has been removed",
-            "been terminated",
-            "does not exist",
-            "deleted",
-        )
-    ):
-        return VideoUnavailableError("This video is unavailable or has been removed.")
-    if any(
-        phrase in text
-        for phrase in (
-            "available in your country",
-            "available in your location",
-            "geo-restrict",
-            "geo restrict",
-            "geoblock",
-            "not available in your region",
-        )
-    ):
-        return VideoUnavailableError("This video is not available in your region.")
-    if "sign in to confirm" in text or "bot" in text:
+    if any(phrase in text for phrase in _BOT_PHRASES):
         return VideoUnavailableError(
             "YouTube is asking for sign-in verification for this video; it cannot be played."
         )
+    if any(phrase in text for phrase in _REGION_PHRASES):
+        return VideoUnavailableError("This video is not available in your region.")
+    if any(phrase in text for phrase in _UNAVAILABLE_PHRASES):
+        return VideoUnavailableError("This video is unavailable or has been removed.")
     return MetadataError(f"YouTube request failed: {message.strip()}")
 
 
