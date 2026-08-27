@@ -62,14 +62,26 @@ class RawMetadata:
 def validate_url(url: str) -> str:
     """Validate a YouTube URL and return the canonical ``watch?v=`` form.
 
-    Raises :class:`URLValidationError` for anything that is not an
-    ``http(s)`` URL on a known YouTube host carrying an 11-character video id.
+    Accepts a bare 11-character video id and scheme-less URLs
+    (``youtube.com/watch?v=...``) as well as full ``http(s)`` URLs. Raises
+    :class:`URLValidationError` for anything not on a known YouTube host
+    carrying a valid video id.
     """
 
     if not isinstance(url, str) or not url.strip():
         raise URLValidationError("No URL was provided.")
 
-    parsed = urlparse(url.strip())
+    raw = url.strip()
+
+    # A bare video id is the most convenient thing to paste.
+    if _VIDEO_ID_RE.fullmatch(raw):
+        return f"https://www.youtube.com/watch?v={raw}"
+
+    # Tolerate a pasted URL with no scheme (youtube.com/watch?v=...).
+    if "://" not in raw:
+        raw = "https://" + raw
+
+    parsed = urlparse(raw)
     if parsed.scheme not in ("http", "https"):
         raise URLValidationError(
             f"'{url}' is not a valid http(s) URL."

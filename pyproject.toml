@@ -21,6 +21,7 @@ classifiers = [
     "Topic :: Terminals",
 ]
 dependencies = [
+    "certifi>=2024.2.2",
     "numpy>=1.24",
     "opencv-python-headless>=4.8",
     "yt-dlp>=2024.1.0",

@@ -61,6 +61,13 @@ class TestValidateUrl:
             f"https://www.youtube.com/shorts/{VALID_ID}",
             f"https://m.youtube.com/watch?v={VALID_ID}",
             f"https://www.youtube.com/embed/{VALID_ID}",
+            f"https://www.youtube.com/watch?v={VALID_ID}&list=RD{VALID_ID}&index=2&pp=8AUB",
+            # scheme-less pastes
+            f"youtube.com/watch?v={VALID_ID}",
+            f"www.youtube.com/watch?v={VALID_ID}",
+            f"youtu.be/{VALID_ID}?si=HCojqkv1SBOvO89Q",
+            # bare video id
+            VALID_ID,
         ],
     )
     def test_accepts_and_canonicalises(self, url: str) -> None:
